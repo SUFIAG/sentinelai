@@ -17,7 +17,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     show-sql: false
     open-in-view: false
     properties:
@@ -43,6 +43,45 @@ spring:
     serialization:
       write-dates-as-timestamps: false
     default-property-inclusion: non_null
+
+  # Phase 6: Kafka Event Streaming (DISABLED - Start Kafka to enable)
+  # kafka:
+  #   bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  #   producer:
+  #     key-serializer: org.apache.kafka.common.serialization.StringSerializer
+  #     value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  #     acks: all
+  #     retries: 3
+  #     properties:
+  #       enable.idempotence: true
+  #       max.in.flight.requests.per.connection: 5
+  #   consumer:
+  #     group-id: sentinelai-consumer-group
+  #     key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  #     value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+  #     auto-offset-reset: earliest
+  #     enable-auto-commit: false
+  #     properties:
+  #       spring.json.trusted.packages: com.sentinel.*
+
+  # Phase 6: Redis Distributed Cache (L2) (DISABLED - Start Redis to enable)
+  # data:
+  #   redis:
+  #     host: ${REDIS_HOST:localhost}
+  #     port: ${REDIS_PORT:6379}
+  #     password: ${REDIS_PASSWORD:}
+  #     database: ${REDIS_DATABASE:0}
+  #     timeout: 2000
+  #     lettuce:
+  #       pool:
+  #         max-active: 8
+  #         max-idle: 8
+  #         min-idle: 2
+  #         max-wait: -1ms
+
+  # Cache profile selection (use 'local' profile for Caffeine only)
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:default}
 
 server:
   port: 8081

@@ -37,7 +37,7 @@ public class FraudEvent {
     @Column(name = "event_type", nullable = false, length = 100)
     private EventType eventType;
 
-    @Column(name = "occurred_at", nullable = false)
+    @Column(name = "timestamp", nullable = false)
     private Instant occurredAt;
 
     @JdbcTypeCode(SqlTypes.JSON)

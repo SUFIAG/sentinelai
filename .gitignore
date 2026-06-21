@@ -1,0 +1,44 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Frontend (Next.js) ###
+sentinel-frontend/node_modules/
+sentinel-frontend/.next/
+sentinel-frontend/out/
+sentinel-frontend/dist/
+sentinel-frontend/.env*.local
+sentinel-frontend/package-lock.json
+sentinel-frontend/yarn.lock
+sentinel-frontend/pnpm-lock.yaml
+
