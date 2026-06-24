@@ -3,8 +3,6 @@ import { apiClient } from './client';
 export const dashboardApi = {
   async getStats() {
     try {
-      const response = await apiClient.getDashboardStats();
-      return response;
     } catch (error) {
       console.error('Failed to fetch dashboard stats:', error);
       // Return mock data if API fails
@@ -32,6 +30,17 @@ export const dashboardApi = {
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
       throw error;
+    }
+  },
+
+  async getFraudTrend(hours: number = 24) {
+    try {
+      const days = Math.ceil(hours / 24);
+      const response = await apiClient.getFraudTrend(days);
+      return response;
+    } catch (error) {
+      console.error('Failed to fetch fraud trend:', error);
+      throw error; // Propagate error instead of returning mock data
     }
   },
 };

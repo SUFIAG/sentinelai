@@ -65,7 +65,7 @@ export function RealtimeChart({
                 </linearGradient>
               ))}
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--primary) / 0.1)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(140, 198, 62, 0.1)" />
             <XAxis
               dataKey="name"
               stroke="hsl(var(--muted-foreground))"

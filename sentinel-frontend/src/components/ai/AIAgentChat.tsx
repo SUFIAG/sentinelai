@@ -11,7 +11,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
+  timestamp: string; // Store as ISO string for consistency
 }
 
 interface AIAgentChatProps {
@@ -20,6 +20,9 @@ interface AIAgentChatProps {
   onSendMessage?: (message: string) => Promise<string>;
 }
 
+// Counter for generating unique IDs (avoid Date.now() for hydration)
+let messageCounter = 0;
+
 export function AIAgentChat({
   agentName = 'Sentinel AI Agent',
   placeholder = 'Ask me anything about fraud detection...',
@@ -27,15 +30,21 @@ export function AIAgentChat({
 }: AIAgentChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: '1',
+      id: 'initial-1',
       role: 'assistant',
       content: 'Hello! I\'m your AI fraud detection assistant. How can I help you today?',
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     },
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Set mounted state for client-only rendering
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -48,11 +57,12 @@ export function AIAgentChat({
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    messageCounter += 1;
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${messageCounter}`,
       role: 'user',
       content: input,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -64,26 +74,26 @@ export function AIAgentChat({
       if (onSendMessage) {
         response = await onSendMessage(input);
       } else {
-        // Mock response for demo
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        response = `I received your message: "${input}". This is a demo response. In production, this will be connected to the AI agent API.`;
+        throw new Error('AI agent handler not configured');
       }
 
+      messageCounter += 1;
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `assistant-${messageCounter}`,
         role: 'assistant',
         content: response,
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
+      messageCounter += 1;
       const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `error-${messageCounter}`,
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
-        timestamp: new Date(),
+        content: 'Sorry, I encountered an error connecting to the AI service. Please check that the backend is running.',
+        timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -95,6 +105,21 @@ export function AIAgentChat({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  // Format timestamp consistently (client-only to avoid hydration mismatch)
+  const formatTime = (isoString: string) => {
+    if (!isMounted) return '';
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleTimeString(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return '';
     }
   };
 
@@ -143,9 +168,11 @@ export function AIAgentChat({
                 }`}
               >
                 <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                <p className="text-xs opacity-50 mt-1">
-                  {message.timestamp.toLocaleTimeString()}
-                </p>
+                {isMounted && (
+                  <p className="text-xs opacity-50 mt-1">
+                    {formatTime(message.timestamp)}
+                  </p>
+                )}
               </div>
             </motion.div>
           ))}

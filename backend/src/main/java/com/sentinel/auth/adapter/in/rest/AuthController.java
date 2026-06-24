@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -43,6 +44,19 @@ public class AuthController {
             @RequestBody @Valid TokenRefreshRequest request) {
         LoginResponse response = authService.refreshToken(request.getRefreshToken());
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+        }
+
+        UUID userId = UUID.fromString((String) authentication.getPrincipal());
+        UUID orgId = UUID.fromString((String) authentication.getCredentials());
+
+        UserResponse user = authService.getUserById(userId, orgId);
+        return ResponseEntity.ok(ApiResponse.success(user));
     }
 
     private UUID extractOrganizationId(HttpServletRequest request) {

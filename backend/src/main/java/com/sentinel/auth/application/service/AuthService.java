@@ -107,4 +107,16 @@ public class AuthService {
                 .user(UserResponse.from(user))
                 .build();
     }
+
+    @Transactional(readOnly = true)
+    public UserResponse getUserById(UUID userId, UUID organizationId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId.toString()));
+
+        if (!user.getOrganizationId().equals(organizationId)) {
+            throw new BusinessException("FORBIDDEN", "User does not belong to this organization");
+        }
+
+        return UserResponse.from(user);
+    }
 }

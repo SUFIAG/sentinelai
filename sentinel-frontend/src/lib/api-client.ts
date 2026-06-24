@@ -46,12 +46,13 @@ class ApiClient {
     }
   }
 
-  private async request<T>(
+  async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      "X-Organization-Id": "550e8400-e29b-41d4-a716-446655440000", // Default org for MVP
       ...(options.headers as Record<string, string>),
     };
 
@@ -80,71 +81,141 @@ class ApiClient {
 
   // Auth APIs
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await this.request<AuthResponse>("/auth/login", {
+    const response = await this.request<any>("/api/v1/auth/login", {
       method: "POST",
       body: JSON.stringify(credentials),
     });
-    this.setToken(response.token);
-    return response;
+    // Backend returns { success: true, data: { token, user } }
+    const authData = response.data || response;
+    if (authData.token) {
+      this.setToken(authData.token);
+    }
+    return authData;
   }
 
   async logout(): Promise<void> {
-    await this.request("/auth/logout", { method: "POST" });
+    await this.request("/api/v1/auth/logout", { method: "POST" });
     this.clearToken();
   }
 
   async getCurrentUser() {
-    return this.request("/auth/me");
+    const response = await this.request<any>("/api/v1/auth/me");
+    return response.data || response;
   }
 
   // Dashboard APIs
   async getDashboardStats(dateRange?: {
     start: string;
     end: string;
-  }): Promise<DashboardStats> {
+  }): Promise<any> {
     const params = dateRange
       ? `?start=${dateRange.start}&end=${dateRange.end}`
       : "";
-    return this.request(`/dashboard/stats${params}`);
+    const response = await this.request<any>(`/api/v1/dashboard/summary${params}`);
+    return response.data || response;
   }
 
   async getAnalytics(dateRange?: {
     start: string;
     end: string;
-  }): Promise<AnalyticsData> {
+  }): Promise<any> {
     const params = dateRange
       ? `?start=${dateRange.start}&end=${dateRange.end}`
       : "";
-    return this.request(`/dashboard/analytics${params}`);
+    const response = await this.request<any>(`/api/v1/dashboard/analytics${params}`);
+    return response.data || response;
+  }
+
+  async getFraudTrend(days: number = 30): Promise<any> {
+    const response = await this.request<any>(`/api/v1/dashboard/fraud-trend?days=${days}`);
+    return response.data || response;
+  }
+
+  async getTopMerchants(limit: number = 10): Promise<any> {
+    const response = await this.request<any>(`/api/v1/dashboard/top-merchants?limit=${limit}`);
+    return response.data || response;
+  }
+
+  async getGeographicRisk(): Promise<any> {
+    const response = await this.request<any>(`/api/v1/dashboard/geographic`);
+    return response.data || response;
   }
 
   // Transaction APIs
-  async getTransactions(
-    params: PaginationParams & { filters?: TransactionFilters }
-  ): Promise<PaginatedResponse<Transaction>> {
-    const queryParams = new URLSearchParams({
-      page: params.page.toString(),
-      size: params.size.toString(),
-    });
-
-    if (params.sort) {
-      queryParams.append("sort", params.sort);
-      queryParams.append("direction", params.direction || "desc");
-    }
-
-    if (params.filters) {
-      Object.entries(params.filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          queryParams.append(key, JSON.stringify(value));
-        }
-      });
-    }
-
-    return this.request(`/transactions?${queryParams}`);
+  async getTransactions(queryString?: string): Promise<any> {
+    const endpoint = queryString
+      ? `/api/v1/transactions?${queryString}`
+      : `/api/v1/transactions`;
+    const response = await this.request<any>(endpoint);
+    // Backend returns { success: true, data: {...} }
+    return response.data || response;
   }
 
-  async getTransaction(id: string): Promise<TransactionDetail> {
-    return this.request(`/transactions/${id}`);
+  async getTransaction(id: string): Promise<any> {
+    const response = await this.request<any>(`/api/v1/transactions/${id}`);
+    return response.data || response;
+  }
+
+  async submitTransaction(data: any): Promise<any> {
+    const response = await this.request<any>(`/api/v1/transactions`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response.data || response;
+  }
+
+  async uploadTransactionCSV(formData: FormData): Promise<any> {
+    // Don't set Content-Type, let browser set it with boundary
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers["Authorization"] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/v1/transactions/upload`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.data || result;
+  }
+
+  async exportTransactions(queryString?: string): Promise<Blob> {
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers["Authorization"] = `Bearer ${this.token}`;
+    }
+
+    const endpoint = queryString
+      ? `/api/v1/transactions/export?${queryString}`
+      : `/api/v1/transactions/export`;
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return response.blob();
+  }
+
+  async getTransactionStats(dateRange?: {
+    start: string;
+    end: string;
+  }): Promise<any> {
+    const params = dateRange
+      ? `?start=${dateRange.start}&end=${dateRange.end}`
+      : "";
+    const response = await this.request<any>(`/api/v1/transactions/stats${params}`);
+    return response.data || response;
   }
 
   async updateTransactionStatus(

@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { RealtimeChart } from '@/components/dashboard/RealtimeChart';
 import { AIAgentChat } from '@/components/ai/AIAgentChat';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { useAuthProtection } from '@/lib/hooks/useAuthProtection';
 import {
   DollarSign,
   Shield,
@@ -13,14 +16,18 @@ import {
   Users,
 } from 'lucide-react';
 import { dashboardApi } from '@/lib/api/dashboard';
+import { aiAgentApi } from '@/lib/api/ai-agent';
 import { useToast } from '@/lib/hooks/useToast';
 
 export default function DashboardPage() {
+  useAuthProtection(); // Protect this page
+  const router = useRouter();
   const { toast } = useToast();
   const [stats, setStats] = useState<any>(null);
   const [transactionData, setTransactionData] = useState<any[]>([]);
   const [fraudData, setFraudData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
 
   useEffect(() => {
     loadDashboardData();
@@ -35,17 +42,27 @@ export default function DashboardPage() {
       const data = await dashboardApi.getStats();
       setStats(data);
 
-      // Generate demo chart data (replace with real API data)
-      const now = new Date();
-      const chartData = Array.from({ length: 24 }, (_, i) => ({
-        name: `${23 - i}h`,
-        transactions: Math.floor(Math.random() * 1000) + 500,
-        fraud: Math.floor(Math.random() * 50) + 10,
-        blocked: Math.floor(Math.random() * 30) + 5,
-      })).reverse();
+      // Fetch real fraud trend data
+      try {
+        const trendData = await dashboardApi.getFraudTrend(24);
+        if (trendData && Array.isArray(trendData) && trendData.length > 0) {
+          setTransactionData(trendData);
+          setFraudData(trendData);
+        } else {
+          setTransactionData([]);
+          setFraudData([]);
+        }
+      } catch (trendError) {
+        console.error('Failed to load trend data:', trendError);
+        toast({
+          title: 'Warning',
+          description: 'Failed to load trend data. Please check backend connection.',
+          variant: 'destructive',
+        });
+        setTransactionData([]);
+        setFraudData([]);
+      }
 
-      setTransactionData(chartData);
-      setFraudData(chartData);
       setLoading(false);
     } catch (error: any) {
       console.error('Failed to load dashboard data:', error);
@@ -60,44 +77,33 @@ export default function DashboardPage() {
 
   const handleSendMessage = async (message: string): Promise<string> => {
     try {
-      // TODO: Connect to AI agent API
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Demo responses based on keywords
-      if (message.toLowerCase().includes('fraud')) {
-        return `Based on current data, we've detected ${stats?.fraudDetected || 0} fraudulent transactions today. The fraud rate is ${stats?.fraudRate || 0}%. The most common fraud patterns are:
-        
-1. Velocity abuse (45%)
-2. Suspicious geolocation (30%)
-3. Abnormal transaction amounts (25%)
-
-Would you like me to investigate any specific pattern?`;
-      }
-
-      if (message.toLowerCase().includes('alert')) {
-        return `You currently have ${stats?.activeAlerts || 0} active alerts. ${stats?.criticalAlerts || 0} are marked as critical priority. The most recent alert was triggered 2 minutes ago for a high-risk transaction.`;
-      }
-
-      return `I've analyzed your query: "${message}". In production, I would use advanced NLP and our fraud detection algorithms to provide detailed insights. Current system status: All fraud detection engines are operational.`;
-    } catch (error) {
-      return 'Sorry, I encountered an error processing your request.';
+      // Connect to real AI agent API
+      const response = await aiAgentApi.chat('fraud-analyst', [
+        { role: 'user', content: message }
+      ]);
+      return response;
+    } catch (error: any) {
+      console.error('AI chat error:', error);
+      // Return error message to user
+      return `I'm having trouble connecting to the AI service. Error: ${error.message}. Please ensure the backend is running.`;
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-          Fraud Detection Dashboard
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Real-time monitoring and AI-powered fraud detection
-        </p>
-      </div>
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#003366] to-[#0B3058] bg-clip-text text-transparent">
+            Fraud Detection Dashboard
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Real-time monitoring and AI-powered fraud detection
+          </p>
+        </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <KPICard
           title="Total Transactions"
           value={stats?.totalTransactions?.toLocaleString() || '0'}
@@ -189,40 +195,15 @@ Would you like me to investigate any specific pattern?`;
         <div className="space-y-4">
           <h2 className="text-2xl font-bold">Recent Activity</h2>
           <div className="space-y-3">
-            {[
-              { type: 'fraud', message: 'High-risk transaction detected', time: '2 min ago', severity: 'critical' },
-              { type: 'alert', message: 'Velocity threshold exceeded', time: '5 min ago', severity: 'high' },
-              { type: 'case', message: 'Case #1234 updated', time: '10 min ago', severity: 'medium' },
-              { type: 'fraud', message: 'Suspicious device fingerprint', time: '15 min ago', severity: 'high' },
-              { type: 'alert', message: 'Geolocation mismatch detected', time: '20 min ago', severity: 'medium' },
-            ].map((activity, index) => (
-              <div
-                key={index}
-                className="p-4 rounded-lg border border-primary/10 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium">{activity.message}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
-                  </div>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-semibold ${
-                      activity.severity === 'critical'
-                        ? 'bg-red-500/10 text-red-400'
-                        : activity.severity === 'high'
-                        ? 'bg-orange-500/10 text-orange-400'
-                        : 'bg-yellow-500/10 text-yellow-400'
-                    }`}
-                  >
-                    {activity.severity}
-                  </span>
-                </div>
-              </div>
-            ))}
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              <p>No recent activity</p>
+              <p className="text-xs mt-2">Activity will appear when fraud is detected. Connect to event stream API for real-time updates.</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }
 
